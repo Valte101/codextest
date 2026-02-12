@@ -111,6 +111,10 @@ app.MapPost("/api/reservations", async (CreateReservationRequest request, Reserv
     {
         return Results.Conflict(new { error = "This field is already reserved for that time range." });
     }
+    catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.SerializationFailure)
+    {
+        return Results.Conflict(new { error = "This field is already reserved for that time range." });
+    }
 
     var fieldName = await db.Fields
         .Where(f => f.Id == request.FieldId)
