@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sport-res-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sport_reservations
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    container_name: sport-res-api
+    working_dir: /app
+    command: bash -c "dotnet restore backend/SportReservations.Api && dotnet run --project backend/SportReservations.Api --urls=http://0.0.0.0:5000"
+    volumes:
+      - ./:/app
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=sport_reservations;Username=postgres;Password=postgres
+      FrontendOrigin: http://localhost:5173
+    depends_on:
+      - postgres
+    ports:
+      - "5000:5000"
+
+volumes:
+  postgres_data:
