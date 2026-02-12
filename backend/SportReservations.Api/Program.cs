@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using Npgsql;
 using SportReservations.Api.Contracts;
 using SportReservations.Api.Data;
@@ -76,16 +77,6 @@ app.MapPost("/api/reservations", async (CreateReservationRequest request, Reserv
         return Results.NotFound(new { error = "Field was not found." });
     }
 
-    var overlapExists = await db.Reservations.AnyAsync(r =>
-        r.FieldId == request.FieldId &&
-        request.StartTime < r.EndTime &&
-        request.EndTime > r.StartTime);
-
-    if (overlapExists)
-    {
-        return Results.Conflict(new { error = "This field is already reserved for that time range." });
-    }
-
     var reservation = new Reservation
     {
         FieldId = request.FieldId,
@@ -95,13 +86,28 @@ app.MapPost("/api/reservations", async (CreateReservationRequest request, Reserv
         Notes = request.Notes?.Trim()
     };
 
-    db.Reservations.Add(reservation);
-
     try
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        var overlapExists = await db.Reservations.AnyAsync(r =>
+            r.FieldId == request.FieldId &&
+            request.StartTime < r.EndTime &&
+            request.EndTime > r.StartTime);
+
+        if (overlapExists)
+        {
+            return Results.Conflict(new { error = "This field is already reserved for that time range." });
+        }
+
+        db.Reservations.Add(reservation);
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
-    catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ExclusionViolation })
+    catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+    {
+        SqlState: PostgresErrorCodes.ExclusionViolation or PostgresErrorCodes.SerializationFailure
+    })
     {
         return Results.Conflict(new { error = "This field is already reserved for that time range." });
     }

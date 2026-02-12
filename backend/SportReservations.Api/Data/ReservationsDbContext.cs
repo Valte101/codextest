@@ -19,6 +19,11 @@ public class ReservationsDbContext(DbContextOptions<ReservationsDbContext> optio
 
         modelBuilder.Entity<Reservation>(entity =>
         {
+            entity.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_Reservations_StartBeforeEnd", "\"StartTime\" < \"EndTime\"");
+            });
+
             entity.Property(r => r.PlayerName).HasMaxLength(120).IsRequired();
             entity.Property(r => r.Notes).HasMaxLength(500);
 

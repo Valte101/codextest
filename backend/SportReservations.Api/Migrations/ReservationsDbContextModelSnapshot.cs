@@ -80,7 +80,10 @@ partial class ReservationsDbContextModelSnapshot : ModelSnapshot
 
                 b.HasIndex("FieldId", "StartTime", "EndTime");
 
-                b.ToTable("Reservations");
+                b.ToTable("Reservations", t =>
+                    {
+                        t.HasCheckConstraint("CK_Reservations_StartBeforeEnd", "\"StartTime\" < \"EndTime\"");
+                    });
             });
 
         modelBuilder.Entity("SportReservations.Api.Models.Reservation", b =>
