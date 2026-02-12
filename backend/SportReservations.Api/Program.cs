@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SportReservations.Api.Contracts;
 using SportReservations.Api.Data;
 using SportReservations.Api.Models;
@@ -95,7 +96,15 @@ app.MapPost("/api/reservations", async (CreateReservationRequest request, Reserv
     };
 
     db.Reservations.Add(reservation);
-    await db.SaveChangesAsync();
+
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ExclusionViolation })
+    {
+        return Results.Conflict(new { error = "This field is already reserved for that time range." });
+    }
 
     var fieldName = await db.Fields
         .Where(f => f.Id == request.FieldId)
